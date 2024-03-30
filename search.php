@@ -32,13 +32,11 @@ class Doctor
 
    public function searchDoctorsBySpeciality($speciality)
    {
-       
-      
-       $stmt = $this->db->prepare("SELECT * FROM doctor WHERE Speciality = :speciality");
-       $stmt->bindValue(':speciality', $speciality);
+       $specialityx = trim($speciality); // No need for mysql_real_escape_string with PDO
+       $stmt = $this->db->prepare("SELECT * FROM doctor WHERE Speciality LIKE :speciality");
+       $stmt->bindValue(':speciality', "%$specialityx%", PDO::PARAM_STR); // Binding the parameter correctly
        $stmt->execute();
        return $stmt->fetchAll(PDO::FETCH_ASSOC);
-
    }
 }
 
