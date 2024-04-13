@@ -18,19 +18,31 @@ class Doctor
         return $stmt->fetchAll(PDO::FETCH_ASSOC);
     }
 
-    public function searchDoctorsByArea($area)
+    public function searchDoctors($area, $speciality)
     {
-        $stmt = $this->db->prepare("SELECT * FROM doctor WHERE Division = :area");
-        $stmt->bindValue(':area', $area);
-        $stmt->execute();
-        return $stmt->fetchAll(PDO::FETCH_ASSOC);
-    }
+        $area = trim($area);
+        $speciality = trim($speciality);
 
-    public function searchDoctorsBySpeciality($speciality)
-    {
-        $specialityx = trim($speciality); // STILL DOESN'T WORK...NEED A SOLID TUTORIAL!!!!!
-        $stmt = $this->db->prepare("SELECT * FROM doctor WHERE Speciality LIKE :speciality");
-        $stmt->bindValue(':speciality', "%$specialityx%", PDO::PARAM_STR); 
+        $sql = "SELECT * FROM doctor WHERE 1";
+
+        if (!empty($area)) {
+            $sql .= " AND Division LIKE :area";
+        }
+
+        if (!empty($speciality)) {
+            $sql .= " AND Speciality LIKE :speciality";
+        }
+
+        $stmt = $this->db->prepare($sql);
+
+        if (!empty($area)) {
+            $stmt->bindValue(':area', "%$area%", PDO::PARAM_STR);
+        }
+
+        if (!empty($speciality)) {
+            $stmt->bindValue(':speciality', "%$speciality%", PDO::PARAM_STR);
+        }
+
         $stmt->execute();
         return $stmt->fetchAll(PDO::FETCH_ASSOC);
     }
@@ -38,10 +50,10 @@ class Doctor
 
 $doctor = new Doctor(Teledoc::connect());
 
-if (isset($_GET['area'])) {
-    $doctors = $doctor->searchDoctorsByArea($_GET['area']);
-} elseif (isset($_GET['speciality'])) {
-    $doctors = $doctor->searchDoctorsBySpeciality($_GET['speciality']);
+if ($_SERVER["REQUEST_METHOD"] == "POST") {
+    $area = isset($_POST['area']) ? $_POST['area'] : "";
+    $speciality = isset($_POST['speciality']) ? $_POST['speciality'] : "";
+    $doctors = $doctor->searchDoctors($area, $speciality);
 } else {
     $doctors = $doctor->getAllDoctors();
 }
@@ -56,11 +68,7 @@ if (isset($_GET['area'])) {
     <link rel="stylesheet" href="design.css">
 </head>
 <body>
-    <div id="background-slideshow">
-        <img src="1.jpg" class="background-image active" alt="Background Image">
-        <img src="2.jpg" class="background-image" alt="Background Image">
-        <img src="3.jpg" class="background-image" alt="Background Image">
-    </div>
+    <?php require("background.php"); ?>
     <h1>TeleDoc</h1>
     <nav>
         <ul>
@@ -68,29 +76,36 @@ if (isset($_GET['area'])) {
             <li><a href="search.php">Search</a></li>
             <li><a href="#">About</a></li>
             <li><a href="#">Contract</a></li>
-            <?php if(isset($_SESSION['username']) || isset($_SESSION['doctor_email'])): ?>
-                <li><?php echo isset($_SESSION['username']) ? '<a href="logout.php" class="large-button">Logout (' . $_SESSION['username'] . ')</a>' : '<a href="doctor_logout.php" class="large-button">Doctor Logout (' . $_SESSION['doctor_email'] . ')</a>'; ?></li>
+            <?php if(isset($_SESSION['username'])): ?>
+                <li><a href="logout.php" class="large-button">Logout (<?= $_SESSION['username'] ?>)</a></li>
             <?php else: ?>
-                <li><a href="patient_login.php" class="large-button">Patient Login</a></li>
-                <li><a href="doctor_login.php" class="large-button">Doctor Login</a></li>
                 <li><a href="register.php" class="large-button">Register</a></li>
+                <li><a href="login.php" class="large-button">Log In</a></li>
             <?php endif; ?>
         </ul>
     </nav>
-    
-    
+
     <div class="container">
         <h2>Search Doctors</h2>
-        <form action="search.php" method="GET">
+        <form action="search.php" method="post">
             <label for="area">Search by Area:</label>
-            <input type="text" name="area" id="area" placeholder="Enter area">
+            <select name="area" id="area">
+                <option value="" default>All</option>
+                <?php
+                // Retrieve all unique divisions regardless of search results
+                $uniqueDivisions = array_unique(array_column($doctor->getAllDoctors(), 'Division'));
+                foreach ($uniqueDivisions as $division) :
+                    ?>
+                    <option value="<?php echo $division; ?>" <?php if(isset($_POST['area']) && $_POST['area'] == $division) echo "selected"; ?>><?php echo $division; ?></option>
+                <?php endforeach; ?>
+            </select>
             <label for="speciality">Search by Speciality:</label>
-            <input type="text" name="speciality" id="speciality" placeholder="Enter speciality">
+            <input type="text" name="speciality" id="speciality" placeholder="Enter speciality" value="<?php if(isset($_POST['speciality'])) echo $_POST['speciality']; ?>">
             <button type="submit" class="large-button">Search</button>
         </form>
     </div>
-    
-    <div class="container">
+
+    <div class="table-responsive">
         <table>
             <thead>
                 <tr>
@@ -104,13 +119,11 @@ if (isset($_GET['area'])) {
                     <th>Chamber Location</th>
                     <th>Visit Charge</th>
                     <th>Time Schedule</th>
-                    <?php if(!isset($_SESSION['doctor_email'])): ?>
-                        <th>Book an appointment</th>
-                    <?php endif; ?>
+                    <th>Book an appointment</th>
                 </tr>
             </thead>
             <tbody>
-                <?php foreach ($doctors as $doctor) : ?>
+                <?php foreach ($doctors as $index => $doctor) : ?>
                     <tr>
                         <td><?php echo $doctor['Name']; ?></td>
                         <td><?php echo $doctor['Email']; ?></td>
@@ -122,9 +135,12 @@ if (isset($_GET['area'])) {
                         <td><?php echo $doctor['ChamberLocation']; ?></td>
                         <td><?php echo $doctor['VisitCharge']; ?></td>
                         <td><?php echo $doctor['TimeStart'] . ' - ' . $doctor['TimeEnd']; ?></td>
-                        <?php if(!isset($_SESSION['doctor_email'])): ?>
-                            <td><a href="appointment.php?IndexNumber=<?php echo $doctor['IndexNumber']; ?>">Book</a></td>
-                        <?php endif; ?>
+                        <td>
+                            <form action="appointment.php" method="post">
+                                <input type="hidden" name="doctorId" value="<?= htmlspecialchars($doctor['IndexNumber']) ?>">
+                                <button type="submit">Book</button>
+                            </form>
+                        </td>
                     </tr>
                 <?php endforeach; ?>
             </tbody>

@@ -1,7 +1,9 @@
 <?php
 require_once('./connection.php');
 
-$doctorId = $_GET['IndexNumber'];
+session_start();
+
+$doctorId = $_POST['doctorId'];
 
 try {
     $conn = Teledoc::connect();
@@ -26,16 +28,14 @@ try {
 <head>
     <meta charset="UTF-8">
     <link rel="stylesheet" href="design.css">
-    <title>Book Appointment with Dr. <?php echo $doctor['Name']; ?></title>
+    <title>Book Appointment with <?php echo $doctor['Name']; ?></title>
 </head>
 
 <body>
-    <!-- Your HTML content -->
-    <div id="background-slideshow">
-        <img src="1.jpg" class="background-image active" alt="Background Image">
-        <img src="2.jpg" class="background-image" alt="Background Image">
-        <img src="3.jpg" class="background-image" alt="Background Image">
-    </div>
+
+<?php 
+require("background.php");
+?>
     <h1>TeleDoc</h1>
     <nav>
         <ul>
@@ -52,11 +52,11 @@ try {
         </ul>
     </nav> 
     <div class="container">
-        <h1>Dr. <?php echo $doctor['Name']; ?></h1>
+    <h1> <?php echo $doctor['Name']; ?></h1>
         <div class="wrapper">
             <div class="card">
                 <div class="profile-img">
-                    <img src="https://static.vecteezy.com/system/resources/thumbnails/024/959/162/small_2x/hand-drawn-vintage-doctor-logo-in-flat-style-png.png" alt="Doctor">
+                <img src="https://static.vecteezy.com/system/resources/thumbnails/024/959/162/small_2x/hand-drawn-vintage-doctor-logo-in-flat-style-png.png" alt="Doctor">
                 </div>
                 <div class="content">
                     <ul type="None">   
@@ -74,49 +74,74 @@ try {
             </div>
         </div>
     </div>
-    
+<!--Below is Appointment Form-->
     <h2>Available Appointment Times</h2>
 
     <?php
-    try {
-        $query = "SELECT * FROM doctor_availability WHERE doctor_id = :doctorId";
-        $stmt = $conn->prepare($query);
-        $stmt->bindParam(':doctorId', $doctorId);
-        $stmt->execute();
+    //  echo $_SESSION['user_id'];
+try {
+    $conn = Teledoc::connect();
 
-        while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
-            echo '<p>' . $row['appointment_time'] . '</p>';
-        }
+    // Get the doctor's start and end time
+    $startEndTimeQuery = "SELECT TimeStart, TimeEnd FROM doctor WHERE IndexNumber = :doctorId";
+    $startEndTimeStmt = $conn->prepare($startEndTimeQuery);
+    $startEndTimeStmt->bindParam(':doctorId', $doctorId);
+    $startEndTimeStmt->execute();
+    $doctorTimes = $startEndTimeStmt->fetch(PDO::FETCH_ASSOC);
+
+    $startTime = $doctorTimes['TimeStart'];
+    $endTime = $doctorTimes['TimeEnd'];
+
 
     } catch(PDOException $e) {
         echo 'Error: ' . $e->getMessage();
     }
+
     ?>
 
-    <form action="appointment.php" method="post">
+    <form action="book_appointment.php" method="post">
         <input type="hidden" name="doctorId" value="<?php echo $doctorId; ?>">
         <label>Appointment Date:</label>
-        <input type="date" name="appointmentDate">
-        <label>Appointment Time:</label>
-        <select name="appointmentTime">
-            <?php
-            try {
-                $query = "SELECT TimeStart, TimeEnd FROM doctor WHERE IndexNumber = :doctorId";
-                $stmt = $conn->prepare($query);
-                $stmt->bindParam(':doctorId', $doctorId);
-                $stmt->execute();
-                $row = $stmt->fetch(PDO::FETCH_ASSOC);
-                $startTime = strtotime($row['TimeStart']);
-                $endTime = strtotime($row['TimeEnd']);
-                while ($startTime < $endTime) {
-                    echo '<option>' . date('H:i', $startTime) . '</option>';
-                    $startTime += 600; 
-                }
-            } catch(PDOException $e) {
-                echo 'Error: ' . $e->getMessage();
+        
+        <input type="date"  name="appointmentDate" value="<?php echo date("Y-m-d") ?>" required>
+        
+<!-- v2 -->
+<label>Appointment Time:</label>
+<select name="appointmentTime" required>
+    <?php
+    try {
+        // Prepare query to select appointment times to exclude
+        $excludeQuery = "SELECT d.appointment_time FROM doctor e INNER JOIN doctor_availablity d ON e.IndexNumber = d.doc_id WHERE e.IndexNumber = :doctorId";
+        $excludeStmt = $conn->prepare($excludeQuery);
+        $excludeStmt->bindParam(':doctorId', $doctorId);
+        $excludeStmt->execute();
+
+        // Fetch the appointment times to exclude
+        $excludeTimes = [];
+        while ($row = $excludeStmt->fetch(PDO::FETCH_ASSOC)) {
+            $excludeTimes[] = $row['appointment_time'];
+        }
+
+        // Generate appointment options in 1-hour intervals, excluding the appointment times to exclude
+        $startTimeObj = new DateTime($startTime);
+        $endTimeObj = new DateTime($endTime);
+        $interval = new DateInterval('PT1H'); // 1 hour interval
+        $appointmentTime = clone $startTimeObj;
+        while ($appointmentTime < $endTimeObj) {
+            $appointmentTimeString = $appointmentTime->format('H:i:s');
+            if (!in_array($appointmentTimeString, $excludeTimes)) {
+                echo '<option value="' . $appointmentTimeString . '">' . $appointmentTimeString . '</option>';
             }
-            ?>
-        </select>
+            $appointmentTime->add($interval);
+        }
+    } catch(PDOException $e) {
+        echo 'Error: ' . $e->getMessage();
+    }
+    ?>
+</select>
+
+
+
         <input type="submit" value="Book Appointment">
     </form>
 
