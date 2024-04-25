@@ -37,8 +37,8 @@ require("background.php");
         <ul>
             <li><a href="index.php">Home</a></li>
             <li><a href="search.php">Search</a></li>
-            <li><a href="#">About</a></li>
-            <li><a href="#">Contract</a></li>
+            <li><a href="about.php">About</a></li>
+            <li><a href="contact">Contact</a></li>
             <?php if(isset($_SESSION['username'])): ?>
                 <li><a href="logout.php" class="large-button">Logout (<?php echo $_SESSION['username']; ?>)</a></li>
             <?php else: ?>

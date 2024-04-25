@@ -6,8 +6,8 @@ class Teledoc {
             $localhost = "localhost";
             $username = "root";
             $password = "";
-            // $port = 3307; // 
-            $port = 3308; // comment this for normal useage and uncomment the above line 
+            
+            $port = 3306; // change this
 
             $con = new PDO("mysql:host=$localhost;dbname=$db_name;port=$port", $username, $password);
             $con->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);

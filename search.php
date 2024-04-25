@@ -1,6 +1,12 @@
 <?php
-session_start();
-require_once('./connection.php');
+
+if (session_status() == PHP_SESSION_NONE) {
+    session_start();
+}
+
+require_once('connection.php');
+
+//encapsulation
 
 class Doctor
 {
@@ -66,6 +72,12 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Search Doctors - TeleDoc</title>
     <link rel="stylesheet" href="css/design.css">
+    <style>
+        .table-container {
+            overflow-y: scroll;
+            max-height: 500px;
+        }
+    </style>
 </head>
 <body>
     <?php require("background.php"); ?>
@@ -74,8 +86,8 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
         <ul>
             <li><a href="index.php">Home</a></li>
             <li><a href="search.php">Search</a></li>
-            <li><a href="#">About</a></li>
-            <li><a href="#">Contract</a></li>
+            <li><a href="about.php">About</a></li>
+            <li><a href="contact.php">Contact</a></li>
             <?php if(isset($_SESSION['username'])): ?>
                 <li><a href="logout.php" class="large-button">Logout (<?= $_SESSION['username'] ?>)</a></li>
             <?php else: ?>
@@ -92,8 +104,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
             <select name="area" id="area">
                 <option value="" default>All</option>
                 <?php
-                // Retrieve all unique divisions regardless of search results
-                $uniqueDivisions = array_unique(array_column($doctor->getAllDoctors(), 'Division'));
+                $uniqueDivisions = array_unique(array_column($doctors, 'Division'));
                 foreach ($uniqueDivisions as $division) :
                     ?>
                     <option value="<?php echo $division; ?>" <?php if(isset($_POST['area']) && $_POST['area'] == $division) echo "selected"; ?>><?php echo $division; ?></option>
@@ -105,46 +116,52 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
         </form>
     </div>
 
-    <div class="table-responsive">
-        <table>
-            <thead>
-                <tr>
-                    <th>Name</th>
-                    <th>Email</th>
-                    <th>Degree</th>
-                    <th>Speciality</th>
-                    <th>Division</th>
-                    <th>Chamber Number</th>
-                    <th>Hospital</th>
-                    <th>Chamber Location</th>
-                    <th>Visit Charge</th>
-                    <th>Time Schedule</th>
-                    <th>Book an appointment</th>
-                </tr>
-            </thead>
-            <tbody>
-                <?php foreach ($doctors as $index => $doctor) : ?>
+    <div class="table-container">
+        <div class="table-responsive">
+            <table>
+                <thead>
                     <tr>
-                        <td><?php echo $doctor['Name']; ?></td>
-                        <td><?php echo $doctor['Email']; ?></td>
-                        <td><?php echo $doctor['Degree']; ?></td>
-                        <td><?php echo $doctor['Speciality']; ?></td>
-                        <td><?php echo $doctor['Division']; ?></td>
-                        <td><?php echo $doctor['ChamberNumber']; ?></td>
-                        <td><?php echo $doctor['Hospital']; ?></td>
-                        <td><?php echo $doctor['ChamberLocation']; ?></td>
-                        <td><?php echo $doctor['VisitCharge']; ?></td>
-                        <td><?php echo $doctor['TimeStart'] . ' - ' . $doctor['TimeEnd']; ?></td>
-                        <td>
-                            <form action="appointment.php" method="post">
-                                <input type="hidden" name="doctorId" value="<?= htmlspecialchars($doctor['IndexNumber']) ?>">
-                                <button type="submit">Book</button>
-                            </form>
-                        </td>
+                        <th>Name</th>
+                        <th>Email</th>
+                        <th>Degree</th>
+                        <th>Speciality</th>
+                        <th>Division</th>
+                        <th>Chamber Number</th>
+                        <th>Hospital</th>
+                        <th>Chamber Location</th>
+                        <th>Visit Charge</th>
+                        <th>Time Schedule</th>
+                        <th>Book an appointment</th>
+                        <th>Ratings</th>
                     </tr>
-                <?php endforeach; ?>
-            </tbody>
-        </table>
+                </thead>
+                <tbody>
+                    <?php foreach ($doctors as $doctor) : ?>
+                        <tr>
+                            <td><?php echo $doctor['Name']; ?></td>
+                            <td><?php echo $doctor['Email']; ?></td>
+                            <td><?php echo $doctor['Degree']; ?></td>
+                            <td><?php echo $doctor['Speciality']; ?></td>
+                            <td><?php echo $doctor['Division']; ?></td>
+                            <td><?php echo $doctor['ChamberNumber']; ?></td>
+                            <td><?php echo $doctor['Hospital']; ?></td>
+                            <td><?php echo $doctor['ChamberLocation']; ?></td>
+                            <td><?php echo $doctor['VisitCharge']; ?></td>
+                            <td><?php echo $doctor['TimeStart'] . ' - ' . $doctor['TimeEnd']; ?></td>
+                            <td>
+                                <form action="appointment.php" method="post">
+                                    <input type="hidden" name="doctorId" value="<?= htmlspecialchars($doctor['IndexNumber']) ?>">
+                                    <button type="submit">Book</button>
+                                </form>
+                            </td>
+                            <td>
+                                <button onclick="window.location.href='ratings.php?doctorId=<?= htmlspecialchars($doctor['IndexNumber']) ?>';">Ratings</button>
+                            </td>
+                        </tr>
+                    <?php endforeach; ?>
+                </tbody>
+            </table>
+        </div>
     </div>
 </body>
 </html>
